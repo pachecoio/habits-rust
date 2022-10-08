@@ -1,5 +1,8 @@
-use diesel::{SqliteConnection, Insertable};
-
+use diesel::{SqliteConnection, Insertable, Table};
+use diesel::ExpressionMethods;
+use diesel::result::Error;
+use diesel::{RunQueryDsl, QueryDsl, Connection, Queryable, QueryableByName};
+use crate::adapters::database::{establish_connection};
 use super::schema;
 
 pub struct Repository<'a> {
@@ -21,35 +24,32 @@ pub struct NewUser<'a> {
 
 #[cfg(test)]
 mod tests {
-	use diesel::result::Error;
-use diesel::{RunQueryDsl, QueryDsl, Connection};
-	use super::*;
-    use crate::adapters::database::establish_connection;
-	use crate::adapters::schema::users::dsl::*;
+	
+	use crate::adapters::database::establish_testing_connection;
+
+use super::*;
 
 	#[test]
 	fn repository_instance() {
-		let connection = establish_connection();
+		let connection = establish_testing_connection();
 		let repo = Repository::new(&connection);
 	}
 
 	#[test]
     fn test_can_create_user() {
-		let mut connection = establish_connection();
-        let repo = Repository::new(&connection);
-
+		let mut connection = establish_testing_connection();
 
 		connection.test_transaction::<_, Error, _>(|conn| {
 			let new_user = NewUser { name: "Thiago", last_name: "Pacheco"};
-				diesel::insert_into(users).values(&new_user).execute(conn).expect("Error");
-	
-			let results = users
-				.select(name)
+			diesel::insert_into(schema::users::table).values(&new_user).execute(conn).expect("Error");
+
+			let results = schema::users::table
+				.select(schema::users::name)
 				.load::<String>(conn)
 				.expect("Error loading users");
 			assert_eq!(results.len(), 1);		
+
 			Ok(())
 		});
-
 	}
 }
